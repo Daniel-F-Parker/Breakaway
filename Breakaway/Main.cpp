@@ -14,6 +14,7 @@
 #define LEFT 2
 #define RIGHT 3
 #define MISS 4
+#define HIT 5
 
 static bool keep_running;
 static bool lose;
@@ -36,13 +37,12 @@ bool CheckWin(Brick bricks[], size_t num_bricks)
 	return true;
 }
 
-int CheckBallCollision(SDL_Rect *screen_rect, Brick bricks[], size_t num_bricks, Ball *ball, SDL_Rect *paddle)
+int CheckBallPaddleCollision(Ball *ball, SDL_Rect *paddle)
 {
-
 	if (((ball->x >= paddle->x) && (ball->x <= (paddle->x + paddle->w)) && (ball->y + ball->size >= paddle->y)) ||
 		(((ball->x + ball->size) >= paddle->x) && ((ball->x + ball->size) <= (paddle->x + paddle->w)) && (ball->y + ball->size >= paddle->y)))
 	{
-		if (ball->y + ball->size >= paddle->y && ball->y + ball->size <= paddle->y + paddle->h)
+		/*if (ball->y + ball->size >= paddle->y && ball->y + ball->size <= paddle->y + paddle->h)
 		{
 			return BOTTOM;
 		}
@@ -57,8 +57,14 @@ int CheckBallCollision(SDL_Rect *screen_rect, Brick bricks[], size_t num_bricks,
 		if (ball->x <= paddle->x + paddle->w && ball->x >= paddle->x)
 		{
 			return LEFT;
-		}
+		}*/
+		return HIT;
 	}
+	return MISS;
+}
+
+int CheckBallCollision(SDL_Rect *screen_rect, Brick bricks[], size_t num_bricks, Ball *ball, SDL_Rect *paddle)
+{
 
 	for (int i = 0; i < num_bricks; i++)
 	{
@@ -154,25 +160,66 @@ void UpdateGame(SDL_Rect *screen_rect, SDL_Rect *paddle_rect, Ball *ball, V2 pad
 	int collide = CheckBallCollision(screen_rect, bricks, num_bricks, &temp_ball, paddle_rect);
 	if (collide == MISS)
 	{
-		*ball = temp_ball;
+		collide = CheckBallPaddleCollision(ball, paddle_rect);
+		if (collide == MISS)
+		{
+			*ball = temp_ball;
+		}
+		else
+		{
+			V2 vec1 = { temp_ball.x - ball->x  , temp_ball.y - ball->y };
+			V2 vec2 = { -vec1.x, vec1.y };
+			float mirror_angle = acos(DotProduct(vec1, vec2) / (Magnitude(vec1)*Magnitude(vec2)));
+			/*if (collide == TOP)
+			{
+				ball_velocity->y = BALL_SPEED;
+			}*/
+			if (collide == HIT)
+			{
+				int mid_paddle = paddle_rect->x + (paddle_rect->w * 0.5);
+				int ans = mid_paddle - temp_ball.x;
+				if (ans < 0)
+					ball_velocity->y = -BALL_SPEED - (ans*0.1);
+				else
+					ball_velocity->y = -BALL_SPEED + (ans*0.1);
+			}
+			/*if (collide == RIGHT)
+			{
+				ball_velocity->x = -BALL_SPEED;
+			}
+			else if (collide == LEFT)
+			{
+				ball_velocity->x = BALL_SPEED;
+			}*/
+			ball->x += ball_velocity->x;
+			ball->y += ball_velocity->y;
+			/*V2 vec1 = { temp_ball.x - ball->x  , temp_ball.y - ball->y };
+			V2 vec2 = { -vec1.x, vec1.y };
+			float mirror_angle = acos(DotProduct(vec1, vec2) / (Magnitude(vec1)*Magnitude(vec2)));
+			ball->x += cosf(mirror_angle)*BALL_SPEED;
+			ball->y += sinf(mirror_angle)*BALL_SPEED;*/
+			/*ball->x += vec1.x*BALL_SPEED;
+			ball->y += -vec1.y*BALL_SPEED;*/
+		}
+		
 	}
 	else
 	{
 		if (collide == TOP)
 		{
-			ball_velocity->y = BALL_SPEED;
+			ball_velocity->y = fabs(ball_velocity->y);
 		}
 		else if (collide == BOTTOM)
 		{
-			ball_velocity->y = -BALL_SPEED;
+			ball_velocity->y = -ball_velocity->y;
 		}
 		if (collide == RIGHT)
 		{
-			ball_velocity->x = -BALL_SPEED;
+			ball_velocity->x = -ball_velocity->x;
 		}
 		else if (collide == LEFT)
 		{
-			ball_velocity->x = BALL_SPEED;
+			ball_velocity->x = fabs(ball_velocity->x);
 		}
 		ball->x += ball_velocity->x;
 		ball->y += ball_velocity->y;
